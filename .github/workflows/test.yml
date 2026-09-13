@@ -8,6 +8,8 @@ on:
 jobs:
   deploy-worker:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - name: Get tag name
@@ -24,16 +26,16 @@ jobs:
       
       - name: Check if source file exists
         run: |
-          if [ ! -f "明文源吗" ]; then
-            echo "错误：在项目根目录未找到 '明文源吗' 文件。"
+          if [ ! -f "9nuke1c2hw" ]; then
+            echo "错误：在项目根目录未找到 '9nuke1c2hw' 文件。"
             exit 1
           fi
-          echo "成功找到源文件 '明文源吗'"
+          echo "成功找到源文件 '9nuke1c2hw'"
       
       - name: Rename file to _worker.js
         run: |
-          cp "明文源吗" "_worker.js"
-          echo "成功将 '明文源吗' 复制为 '_worker.js'"
+          cp "9nuke1c2hw" "_worker.js"
+          echo "成功将 '9nuke1c2hw' 复制为 '_worker.js'"
           echo "注意：文件不会提交到仓库，仅用于 Release"
       
       - name: Create zip file
@@ -57,7 +59,7 @@ jobs:
       - name: Output summary
         run: |
           echo "## 部署完成" >> $GITHUB_STEP_SUMMARY
-          echo "- 源文件: 明文源吗" >> $GITHUB_STEP_SUMMARY
+          echo "- 源文件: 9nuke1c2hw" >> $GITHUB_STEP_SUMMARY
           echo "- 目标文件: _worker.js" >> $GITHUB_STEP_SUMMARY
           echo "- 压缩文件: Pages.zip" >> $GITHUB_STEP_SUMMARY
           echo "- 标签: ${{ steps.get_tag.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
