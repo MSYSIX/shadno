@@ -1,0 +1,135 @@
+name: Auto Sync Upstream (byJoey/cfnew)
+
+on:
+  schedule:
+    # 每天每 6 小时自动检测一次上游更新 (UTC 0:00, 6:00, 12:00, 18:00)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # 支持手动一键触发同步
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      workflows: write
+
+    steps:
+      - name: Checkout shadno repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js (for obfuscation)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Clone upstream byJoey/cfnew
+        run: |
+          git clone --depth=1 https://github.com/byJoey/cfnew.git upstream_cfnew
+          UPSTREAM_SHA=$(cd upstream_cfnew && git rev-parse --short HEAD)
+          echo "UPSTREAM_SHA=$UPSTREAM_SHA" >> $GITHUB_ENV
+          echo "成功获取上游仓库最新 Commit: $UPSTREAM_SHA"
+
+      - name: Sync and Transform Files
+        run: |
+          # 1. 复制并映射对应文件
+          if [ -f "upstream_cfnew/明文源吗" ]; then
+            cp "upstream_cfnew/明文源吗" "9nuke1c2hw"
+            echo "已同步: upstream/明文源吗 -> 9nuke1c2hw"
+          fi
+
+          if [ -f "upstream_cfnew/snippets" ]; then
+            cp "upstream_cfnew/snippets" "rkf6xw90fo"
+            echo "已同步: upstream/snippets -> rkf6xw90fo"
+          fi
+
+          # 2. 严格排除指定文件（确保不同步 README.md 和 فارسی.md）
+          rm -f "README.md" "فارسی.md" "zuf33jpr77.md"
+
+          # 3. 如果上游 obfuscate.yml 发生变更，同步并适配本项目的文件名与权限
+          if [ -f "upstream_cfnew/.github/workflows/obfuscate.yml" ]; then
+            mkdir -p .github/workflows
+            python3 - << 'EOF'
+          with open("upstream_cfnew/.github/workflows/obfuscate.yml", "r", encoding="utf-8") as f:
+              content = f.read()
+
+          # 替换源文件与输出文件名
+          content = content.replace("明文源吗", "9nuke1c2hw")
+          content = content.replace("少年你相信光吗", "yu034o6mum")
+
+          # 确保具备写权限
+          if "permissions:" not in content:
+              content = content.replace("jobs:\n  build-and-obfuscate:\n    runs-on: ubuntu-latest",
+                                        "jobs:\n  build-and-obfuscate:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write")
+
+          with open(".github/workflows/obfuscate.yml", "w", encoding="utf-8") as f:
+              f.write(content)
+          EOF
+            echo "已同步并适配: .github/workflows/obfuscate.yml"
+          fi
+
+          # 4. 如果上游 test.yml 发生变更，同样进行适配
+          if [ -f "upstream_cfnew/.github/workflows/test.yml" ]; then
+            python3 - << 'EOF'
+          with open("upstream_cfnew/.github/workflows/test.yml", "r", encoding="utf-8") as f:
+              content = f.read()
+
+          content = content.replace("明文源吗", "9nuke1c2hw")
+          if "permissions:" not in content:
+              content = content.replace("jobs:\n  deploy-worker:\n    runs-on: ubuntu-latest",
+                                        "jobs:\n  deploy-worker:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write")
+
+          with open(".github/workflows/test.yml", "w", encoding="utf-8") as f:
+              f.write(content)
+          EOF
+            echo "已同步并适配: .github/workflows/test.yml"
+          fi
+
+          # 清理上游临时目录
+          rm -rf upstream_cfnew
+
+      - name: Generate Obfuscated yu034o6mum if source changed
+        run: |
+          # 检查 9nuke1c2hw 是否有改动，若改动则立即生成混淆文件 yu034o6mum
+          if git diff --name-only | grep -q "^9nuke1c2hw$"; then
+            echo "检测到 9nuke1c2hw 有更新，重新生成混淆文件 yu034o6mum..."
+            npm install javascript-obfuscator
+            node -e "
+            const JavaScriptObfuscator = require('javascript-obfuscator');
+            const fs = require('fs');
+            const originalCode = fs.readFileSync('9nuke1c2hw', 'utf8');
+            const obfuscatedCode = JavaScriptObfuscator.obfuscate(originalCode, {
+                compact: true,
+                stringArray: true,
+                stringArrayEncoding: ['base64'],
+                stringArrayThreshold: 1.0,
+                stringArrayRotate: true,
+                stringArrayShuffle: true,
+                stringArrayWrappersCount: 2,
+                stringArrayWrappersChainedCalls: false,
+                renameGlobals: true,
+                identifierNamesGenerator: 'mangled-shuffled',
+                unicodeEscapeSequence: true
+            }).getObfuscatedCode();
+            fs.writeFileSync('yu034o6mum', obfuscatedCode, 'utf8');
+            "
+            echo "成功重新生成 yu034o6mum"
+          fi
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 暂存更改（.gitignore 中的文件会被自动忽略）
+          git add -A
+
+          if git diff --staged --quiet; then
+            echo "没有任何新变动，当前 shadno 仓库已是最新状态。"
+          else
+            git commit -m "Auto-sync from upstream byJoey/cfnew ($UPSTREAM_SHA)"
+            git push
+            echo "已成功将上游更新同步并推送到 shadno 仓库！"
+          fi
