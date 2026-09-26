@@ -5,3 +5,4 @@ random_rename.sh
 file_mapping.txt
 _worker.js
 .wrangler/
+.cf_worker_prompt.md
